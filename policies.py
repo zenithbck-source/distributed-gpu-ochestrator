@@ -21,6 +21,8 @@ def fcfs(job_list):
 
     for i, node_jobs in enumerate(jobs):
         jobs[i] = sorted(node_jobs, key=lambda job: job['submit_time'])
+        for job in node_jobs:
+            job['total_ram_gb'] = job['ram_gb_per_cpu'] * job['cpu_cores']
 
     while completed < total_jobs:
         for i, node_jobs in enumerate(jobs):
@@ -28,43 +30,57 @@ def fcfs(job_list):
                     if job['state'] == 'S' and job['end_time'] < time:
                         if job['node'] == (f"node{i*2}"):
                             nodes[i*2]['avail_gpu_count'] += job['gpu_count']
+                            nodes[i*2]['avail_cpu_cores'] += job['cpu_cores']
+                            nodes[i*2]['avail_ram_gb'] += job['total_ram_gb']
+
                             job['state'] = 'E'
                             schedule[i*2].append(job)
                         elif job['node'] == (f"node{i*2+1}"):
                             nodes[i*2+1]['avail_gpu_count'] += job['gpu_count']
+                            nodes[i*2]['avail_cpu_cores'] += job['cpu_cores']
+                            nodes[i*2]['avail_ram_gb'] += job['total_ram_gb']
+
                             job['state'] = 'E'
                             schedule[i*2+1].append(job)
                         completed += 1
                         
                     if job['state'] == 'Q' and job['submit_time'] <= time:
-                        if job['gpu_count'] <= nodes[i*2]['avail_gpu_count']:
+                        if job['gpu_count'] <= nodes[i*2]['avail_gpu_count'] and job['cpu_cores'] <= nodes[i*2]['avail_cpu_cores'] and job['total_ram_gb'] <= nodes[i*2]['avail_ram_gb']:
                             job['start_time'] = time
                             job['end_time'] = time + job['runtime']
                             job['state'] = 'S'
                             job['node'] = (f'node{i*2}')
+
                             nodes[i*2]['avail_gpu_count'] -= job['gpu_count']
-                        elif job['gpu_count'] <= nodes[i*2+1]['avail_gpu_count']:
+                            nodes[i*2]['avail_cpu_cores'] -= job['cpu_cores']
+                            nodes[i*2]['avail_ram_gb'] -= job['total_ram_gb']
+                        elif job['gpu_count'] <= nodes[i*2+1]['avail_gpu_count'] and job['cpu_cores'] <= nodes[i*2+1]['avail_cpu_cores'] and job['total_ram_gb'] <= nodes[i*2+1]['avail_ram_gb']:
                             job['start_time'] = time
                             job['end_time'] = time + job['runtime']
                             job['state'] = 'S'
                             job['node'] = (f'node{i*2+1}')
+
                             nodes[i*2+1]['avail_gpu_count'] -= job['gpu_count']
+                            nodes[i*2+1]['avail_cpu_cores'] -= job['cpu_cores']
+                            nodes[i*2+1]['avail_ram_gb'] -= job['total_ram_gb']
         time += 1
         
         
-    return schedule, jobs
+    return schedule, jobs, time
 
 
 
 
 if __name__ == "__main__":
     jobs = generate_job(100, 42)
-    schedule, log = fcfs(jobs)
+    schedule, log, total_time = fcfs(jobs)
 
     keys_to_display = [
         "job_id",
         "node",
         "gpu_count",
+        "cpu_cores",
+        "total_ram_gb",
         "submit_time",
         "start_time",
         "end_time",
@@ -75,3 +91,5 @@ if __name__ == "__main__":
         for job in node:
             print({key: job[key] for key in keys_to_display})  # key: job[key] for key in keys_to_display}
         print()
+
+    print(total_time)
