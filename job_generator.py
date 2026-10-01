@@ -23,7 +23,8 @@ def generate_job(n_jobs, seed):
                 "cpu_cores": cpu_cores,
                 "ram_gb_per_cpu": ram_gb_per_cpu,
                 "runtime": runtime,
-                "priority": priority
+                "priority": priority,
+                "state": 'Q'
             }
         )
 
