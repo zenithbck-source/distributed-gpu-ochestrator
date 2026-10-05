@@ -5,13 +5,13 @@ nodes = [
 
         # Total Resources
         "gpu_count": 8,
-        "cpu_cores": 128,
-        "ram_gb": 1024,
+        "cpu_cores": 32,
+        "ram_gb": 64,
 
         # Available Resources
         "avail_gpu_count": 8,
-        "avail_cpu_cores": 128,
-        "avail_ram_gb": 1024
+        "avail_cpu_cores": 32,
+        "avail_ram_gb": 64
     },
     {
         "node_id": "node-1",
@@ -19,13 +19,13 @@ nodes = [
 
         # Total Resources
         "gpu_count": 16,
-        "cpu_cores": 256,
-        "ram_gb": 2048,
+        "cpu_cores": 64,
+        "ram_gb": 128,
 
         # Available Resources
         "avail_gpu_count": 16,
-        "avail_cpu_cores": 256,
-        "avail_ram_gb": 2048
+        "avail_cpu_cores": 64,
+        "avail_ram_gb": 128
     },
     {
         "node_id": "node-2",
@@ -33,13 +33,13 @@ nodes = [
 
         # Total Resources
         "gpu_count": 8,
-        "cpu_cores": 128,
-        "ram_gb": 1024,
+        "cpu_cores": 32,
+        "ram_gb": 64,
 
         # Available Resources
         "avail_gpu_count": 8,
-        "avail_cpu_cores": 128,
-        "avail_ram_gb": 1024
+        "avail_cpu_cores": 32,
+        "avail_ram_gb": 64
     },
     {
         "node_id": "node-3",
@@ -47,13 +47,13 @@ nodes = [
 
         # Total Resources
         "gpu_count": 16,
-        "cpu_cores": 256,
-        "ram_gb": 2048,
+        "cpu_cores": 64,
+        "ram_gb": 128,
 
         # Available Resources
         "avail_gpu_count": 16,
-        "avail_cpu_cores": 256,
-        "avail_ram_gb": 2048
+        "avail_cpu_cores": 64,
+        "avail_ram_gb": 128
     }
 ]
 
