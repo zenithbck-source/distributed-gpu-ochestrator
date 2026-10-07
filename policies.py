@@ -2,6 +2,7 @@ from nodes import nodes
 from copy import deepcopy
 from job_generator import generate_job
 
+# ===== UTILS =====
 def splitting(jobs):
     # all_nodes[0] -> node-01, all_nodes[1] -> node-02 ...
     all_nodes = [[], []]
@@ -12,9 +13,28 @@ def splitting(jobs):
     
     return all_nodes
 
-    
+def job_completed(index, job, nodes, schedule):
+    nodes[index]['avail_gpu_count'] += job['gpu_count']
+    nodes[index]['avail_cpu_cores'] += job['cpu_cores']
+    nodes[index]['avail_ram_gb'] += job['total_ram_gb']
+
+    job['state'] = 'E'
+    schedule[index].append(job)
+
+def job_started(index, job, nodes, time):
+    job['start_time'] = time
+    job['end_time'] = time + job['runtime']
+    job['state'] = 'S'
+    job['node'] = (f'node{index}')
+
+    nodes[index]['avail_gpu_count'] -= job['gpu_count']
+    nodes[index]['avail_cpu_cores'] -= job['cpu_cores']
+    nodes[index]['avail_ram_gb'] -= job['total_ram_gb']
+
+
+# ===== POLICIES =====    
 def fcfs(job_list):
-    #nodes_copy = deepcopy(nodes)
+    nodes_copy = deepcopy(nodes)
     total_jobs = len(job_list)
     jobs = splitting(job_list)
     schedule = [[], [], [], []]  # each list for one node
@@ -32,43 +52,29 @@ def fcfs(job_list):
             for job in node_jobs:
                     if job['state'] == 'S' and job['end_time'] <= time:
                         if job['node'] == (f"node{i*2}"):
-                            nodes[i*2]['avail_gpu_count'] += job['gpu_count']
-                            nodes[i*2]['avail_cpu_cores'] += job['cpu_cores']
-                            nodes[i*2]['avail_ram_gb'] += job['total_ram_gb']
+                            job_completed(i*2, job, nodes_copy, schedule)
 
-                            job['state'] = 'E'
-                            schedule[i*2].append(job)
                         elif job['node'] == (f"node{i*2+1}"):
-                            nodes[i*2+1]['avail_gpu_count'] += job['gpu_count']
-                            nodes[i*2+1]['avail_cpu_cores'] += job['cpu_cores']
-                            nodes[i*2+1]['avail_ram_gb'] += job['total_ram_gb']
+                            job_completed(i*2+1, job, nodes_copy, schedule)
 
-                            job['state'] = 'E'
-                            schedule[i*2+1].append(job)
                         completed += 1
                         
                     if job['state'] == 'Q' and job['submit_time'] <= time:
-                        if job['gpu_count'] <= nodes[i*2]['avail_gpu_count'] and job['cpu_cores'] <= nodes[i*2]['avail_cpu_cores'] and job['total_ram_gb'] <= nodes[i*2]['avail_ram_gb']:
-                            job['start_time'] = time
-                            job['end_time'] = time + job['runtime']
-                            job['state'] = 'S'
-                            job['node'] = (f'node{i*2}')
+                        if job['gpu_count'] <= nodes_copy[i*2]['avail_gpu_count'] and job['cpu_cores'] <= nodes_copy[i*2]['avail_cpu_cores'] and job['total_ram_gb'] <= nodes_copy[i*2]['avail_ram_gb']:
+                            job_started(i*2, job, nodes_copy, time)
+                            print(f"{job['node']} | {nodes_copy[i*2]['avail_gpu_count']} GPU | {nodes_copy[i*2]['avail_cpu_cores']} CPU | {nodes_copy[i*2]['avail_ram_gb']} GB")
+                            if nodes_copy[i*2]['avail_cpu_cores'] < 0 or nodes_copy[i*2]['avail_ram_gb'] < 0: print("^^^ WARNING: OVERBOOKING ^^^") 
 
-                            nodes[i*2]['avail_gpu_count'] -= job['gpu_count']
-                            nodes[i*2]['avail_cpu_cores'] -= job['cpu_cores']
-                            nodes[i*2]['avail_ram_gb'] -= job['total_ram_gb']
-                            print(f"{job['node']} | {nodes[i*2]['avail_gpu_count']} GPU | {nodes[i*2]['avail_cpu_cores']} CPU | {nodes[i*2]['avail_ram_gb']} GB")
+                        elif job['gpu_count'] <= nodes_copy[i*2+1]['avail_gpu_count'] and job['cpu_cores'] <= nodes_copy[i*2+1]['avail_cpu_cores'] and job['total_ram_gb'] <= nodes_copy[i*2+1]['avail_ram_gb']:
+                            job_started(i*2+1, job, nodes_copy, time)
+                            print(f"{job['node']} | {nodes_copy[i*2+1]['avail_gpu_count']} GPU | {nodes_copy[i*2+1]['avail_cpu_cores']} CPU | {nodes_copy[i*2+1]['avail_ram_gb']} GB")
+                            if nodes_copy[i*2+1]['avail_cpu_cores'] < 0 or nodes_copy[i*2+1]['avail_ram_gb'] < 0: print("^^^ WARNING: OVERBOOKING ^^^") 
 
-                        elif job['gpu_count'] <= nodes[i*2+1]['avail_gpu_count'] and job['cpu_cores'] <= nodes[i*2+1]['avail_cpu_cores'] and job['total_ram_gb'] <= nodes[i*2+1]['avail_ram_gb']:
-                            job['start_time'] = time
-                            job['end_time'] = time + job['runtime']
-                            job['state'] = 'S'
-                            job['node'] = (f'node{i*2+1}')
-
-                            nodes[i*2+1]['avail_gpu_count'] -= job['gpu_count']
-                            nodes[i*2+1]['avail_cpu_cores'] -= job['cpu_cores']
-                            nodes[i*2+1]['avail_ram_gb'] -= job['total_ram_gb']
-                            print(f"{job['node']} | {nodes[i*2+1]['avail_gpu_count']} GPU | {nodes[i*2+1]['avail_cpu_cores']} CPU | {nodes[i*2+1]['avail_ram_gb']} GB")
+        #print(f"\ntime: {time}")
+        #print(f"node0 | {nodes[0]['avail_gpu_count']} GPU | {nodes[0]['avail_cpu_cores']} CPU | {nodes[0]['avail_ram_gb']} GB")
+        #print(f"node1 | {nodes[1]['avail_gpu_count']} GPU | {nodes[1]['avail_cpu_cores']} CPU | {nodes[1]['avail_ram_gb']} GB")
+        #print(f"node2 | {nodes[2]['avail_gpu_count']} GPU | {nodes[2]['avail_cpu_cores']} CPU | {nodes[2]['avail_ram_gb']} GB")
+        #print(f"node3 | {nodes[3]['avail_gpu_count']} GPU | {nodes[3]['avail_cpu_cores']} CPU | {nodes[3]['avail_ram_gb']} GB")
         time += 1
         
         
@@ -93,6 +99,7 @@ if __name__ == "__main__":
         "end_time",
         "runtime"
     ]
+
     print()
     for node in log:
         for job in node:
