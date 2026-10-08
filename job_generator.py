@@ -6,13 +6,13 @@ def generate_job(n_jobs, seed):
 
     for i in range(1, n_jobs+1):
         job_id = (f"J{i:003d}")
-        submit_time = random.randint(0, 500)
+        submit_time = random.randint(0, 10)
         gpu_type = random.choice(['A100', 'H100'])
         gpu_count = random.randint(1, 8)
         cpu_cores = random.choice([1, 2, 4, 8, 16, 32])
         ram_gb_per_cpu = random.choice([1, 2, 4])
         runtime = random.randint(5, 30)
-        priority = random.randrange(10, 50, 10)
+        priority = random.randrange(10, 60, 10)
 
         jobs.append(
             {
