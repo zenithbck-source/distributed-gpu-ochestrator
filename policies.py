@@ -18,13 +18,13 @@ def job_completed(index, job, nodes, schedule):
     nodes[index]['avail_cpu_cores'] += job['cpu_cores']
     nodes[index]['avail_ram_gb'] += job['total_ram_gb']
 
-    job['state'] = 'E'
+    job['state'] = 'F'
     schedule[index].append(job)
 
 def job_started(index, job, nodes, time):
     job['start_time'] = time
     job['end_time'] = time + job['runtime']
-    job['state'] = 'S'
+    job['state'] = 'R'
     job['node'] = (f'node{index}')
 
     nodes[index]['avail_gpu_count'] -= job['gpu_count']
@@ -50,7 +50,7 @@ def fcfs(job_list):
     while completed < total_jobs:
         for i, node_jobs in enumerate(jobs):
             for job in node_jobs:
-                    if job['state'] == 'S' and job['end_time'] <= time:
+                    if job['state'] == 'R' and job['end_time'] <= time:
                         if job['node'] == (f"node{i*2}"):
                             job_completed(i*2, job, nodes_copy, schedule)
 
@@ -94,16 +94,18 @@ def priority(jobs):
     for job in jobs:
         job['total_ram_gb'] = job['cpu_cores'] * job['ram_gb_per_cpu']
 
-    while time < 501:
+    while completed < total_jobs:
         for job in jobs:
-            if job['state'] == 'S' and job['end_time'] <= time:
+            if job['state'] == 'R' and job['end_time'] <= time:
                 if job['node'] == 'node0': job_completed(0, job, nodes_copy, schedule)
                 elif job['node'] == 'node1': job_completed(1, job, nodes_copy, schedule)
                 elif job['node'] == 'node2': job_completed(2, job, nodes_copy, schedule)
                 elif job['node'] == 'node3': job_completed(3, job, nodes_copy, schedule)
+                completed += 1
 
         for job in jobs:
             if job['submit_time'] == time:
+                job['state'] = 'Q'
                 queueA.append(job) if job['gpu_type'] == 'A100' else queueH.append(job)
 
         queueA = deque(sorted(queueA, key=lambda job: (-job['priority'], job['submit_time'])))
@@ -144,9 +146,9 @@ def priority(jobs):
 
 
 if __name__ == "__main__":
-    jobs = generate_job(30, 42)
-    #schedule, log, total_time = fcfs(jobs)
-    queueA, queueH, log = priority(jobs)
+    jobs = generate_job(100, 42)
+    schedule, log_fcfs, total_time = fcfs(jobs)
+    queueA, queueH, log_priority = priority(jobs)
 
     keys_to_display = [
         "job_id",
@@ -162,13 +164,15 @@ if __name__ == "__main__":
         "priority"
     ]
 
-    #for node in log:
-    #    for job in node:
-    #        print({key: job[key] for key in keys_to_display})
-    #    print()
+    # ===== Check for FCFS =====
+    for node in log_fcfs:
+        for job in node:
+            print({key: job[key] for key in keys_to_display})
+        print()
 
 
-
+    print()
+    print()
 
     # ===== Checks For Priority =====
     print("All Jobs:")
@@ -178,12 +182,12 @@ if __name__ == "__main__":
 
     print("\nLog for Node 0 and Node 1:")
 
-    for job in log:
+    for job in log_priority:
         if job['node'] == 'node0' or job['node'] == 'node1': print({key: job[key] for key in keys_to_display})
 
     print("\nLog for Node 2 and Node 3:")
 
-    for job in log:
+    for job in log_priority:
         if job['node'] == 'node2' or job['node'] == 'node3': print({key: job[key] for key in keys_to_display})
 
     print("\nQueue for A100:")
