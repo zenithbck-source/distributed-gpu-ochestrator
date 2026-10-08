@@ -48,25 +48,27 @@ def fcfs(job_list):
     time = 0
     completed = 0
 
-    jobs = job_preparation(job_list)
-    jobs = splitting(jobs)
 
+    jobs = job_preparation(job_list)
+    jobs = splitting(jobs)  # Splits jobs into two lists, separating A100 and H100 jobs
+
+    # Sorting jobs based on submission time
     for i, node_jobs in enumerate(jobs):
         jobs[i] = sorted(node_jobs, key=lambda job: job['submit_time'])
-
 
     while completed < total_jobs:
         for i, node_jobs in enumerate(jobs):
             for job in node_jobs:
+                    # Freeing resources in the node when job completes
                     if job['state'] == 'R' and job['end_time'] <= time:
                         if job['node'] == (f"node{i*2}"):
                             job_completed(i*2, job, nodes_copy, schedule)
-
                         elif job['node'] == (f"node{i*2+1}"):
                             job_completed(i*2+1, job, nodes_copy, schedule)
-
                         completed += 1
-                        
+
+                    # Looping through all jobs to begin jobs that have enough resources (GPU, CPU, RAM)
+                    # Makes use of the index of the job (from enumerate) to split into nodes 0/1 or nodes 2/3
                     if job['state'] == 'Q' and job['submit_time'] <= time:
                         if job['gpu_count'] <= nodes_copy[i*2]['avail_gpu_count'] and job['cpu_cores'] <= nodes_copy[i*2]['avail_cpu_cores'] and job['total_ram_gb'] <= nodes_copy[i*2]['avail_ram_gb']:
                             job_started(i*2, job, nodes_copy, time)
@@ -103,6 +105,7 @@ def priority(job_list):
     jobs_removingH = []
     time = 0
     completed = 0
+
 
     jobs = job_preparation(job_list)
     
