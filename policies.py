@@ -1,5 +1,6 @@
 from nodes import nodes
 from copy import deepcopy
+from collections import deque
 from job_generator import generate_job
 
 # ===== UTILS =====
@@ -77,32 +78,62 @@ def fcfs(job_list):
         #print(f"node3 | {nodes[3]['avail_gpu_count']} GPU | {nodes[3]['avail_cpu_cores']} CPU | {nodes[3]['avail_ram_gb']} GB")
         time += 1
         
-        
     return schedule, jobs, time
 
+def priority(job_list):
+    nodes_copy = deepcopy(nodes)
+    total_jobs = len(job_list)
+    jobs = splitting(job_list)
+    schedule = [[], [], [], []]  # each list for one node
+    queue = deque()
+    time = 0
+    completed = 0
+
+    for i, node_jobs in enumerate(jobs):
+        for job in node_jobs:
+            job['total_ram_gb'] = job['cpu_cores'] * job['ram_gb_per_cpu']
+        jobs[i] = sorted(node_jobs, key=lambda job: job['submit_time'])
+
+    while time < 100:
+        for i, node_jobs in enumerate(jobs):
+            for job in node_jobs:
+                if job['submit_time'] == time:
+                    queue.append(job)
+
+        queue = deque(sorted(queue, key=lambda job: (-job['priority'], job['submit_time'])))
+        
+        time += 1
+
+    return queue
+    
 
 
 
 if __name__ == "__main__":
-    jobs = generate_job(100, 42)
-    schedule, log, total_time = fcfs(jobs)
+    jobs = generate_job(10, 42)
+    #schedule, log, total_time = fcfs(jobs)
+    queue = priority(jobs)
 
     keys_to_display = [
         "job_id",
-        "node",
-        "gpu_count",
-        "cpu_cores",
-        "ram_gb_per_cpu",
-        "total_ram_gb",
+#        "node",
+#        "gpu_count",
+#        "cpu_cores",
+#        "ram_gb_per_cpu",
+#        "total_ram_gb",
         "submit_time",
-        "start_time",
-        "end_time",
-        "runtime"
+#        "start_time",
+#        "end_time",
+#        "runtime",
+        "priority"
     ]
 
     print()
-    for node in log:
-        for job in node:
-            print({key: job[key] for key in keys_to_display})
-        print()
+    #for node in log:
+    #    for job in node:
+    #        print({key: job[key] for key in keys_to_display})
+    #    print()
+
+    for job in queue:
+        print({key: job[key] for key in keys_to_display})
         
