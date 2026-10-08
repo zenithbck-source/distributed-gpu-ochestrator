@@ -13,6 +13,14 @@ def splitting(jobs):
     
     return all_nodes
 
+def job_preparation(jobs):
+    jobs_copy = deepcopy(jobs)
+
+    for job in jobs_copy:
+        job['total_ram_gb'] = job['cpu_cores'] * job['ram_gb_per_cpu']
+
+    return jobs_copy
+
 def job_completed(index, job, nodes, schedule):
     nodes[index]['avail_gpu_count'] += job['gpu_count']
     nodes[index]['avail_cpu_cores'] += job['cpu_cores']
@@ -36,14 +44,14 @@ def job_started(index, job, nodes, time):
 def fcfs(job_list):
     nodes_copy = deepcopy(nodes)
     total_jobs = len(job_list)
-    jobs = splitting(job_list)
     schedule = [[], [], [], []]  # each list for one node
     time = 0
     completed = 0
 
+    jobs = job_preparation(job_list)
+    jobs = splitting(jobs)
+
     for i, node_jobs in enumerate(jobs):
-        for job in node_jobs:
-            job['total_ram_gb'] = job['cpu_cores'] * job['ram_gb_per_cpu']
         jobs[i] = sorted(node_jobs, key=lambda job: job['submit_time'])
 
 
@@ -62,14 +70,19 @@ def fcfs(job_list):
                     if job['state'] == 'Q' and job['submit_time'] <= time:
                         if job['gpu_count'] <= nodes_copy[i*2]['avail_gpu_count'] and job['cpu_cores'] <= nodes_copy[i*2]['avail_cpu_cores'] and job['total_ram_gb'] <= nodes_copy[i*2]['avail_ram_gb']:
                             job_started(i*2, job, nodes_copy, time)
-                            print(f"{job['node']} | {nodes_copy[i*2]['avail_gpu_count']} GPU | {nodes_copy[i*2]['avail_cpu_cores']} CPU | {nodes_copy[i*2]['avail_ram_gb']} GB")
-                            if nodes_copy[i*2]['avail_cpu_cores'] < 0 or nodes_copy[i*2]['avail_ram_gb'] < 0: print("^^^ WARNING: OVERBOOKING ^^^") 
+
+                            # Checking resources at the node after each job starts
+                            #print(f"{job['node']} | {nodes_copy[i*2]['avail_gpu_count']} GPU | {nodes_copy[i*2]['avail_cpu_cores']} CPU | {nodes_copy[i*2]['avail_ram_gb']} GB")
+                            #if nodes_copy[i*2]['avail_cpu_cores'] < 0 or nodes_copy[i*2]['avail_ram_gb'] < 0: print("^^^ WARNING: OVERBOOKING ^^^") 
 
                         elif job['gpu_count'] <= nodes_copy[i*2+1]['avail_gpu_count'] and job['cpu_cores'] <= nodes_copy[i*2+1]['avail_cpu_cores'] and job['total_ram_gb'] <= nodes_copy[i*2+1]['avail_ram_gb']:
                             job_started(i*2+1, job, nodes_copy, time)
-                            print(f"{job['node']} | {nodes_copy[i*2+1]['avail_gpu_count']} GPU | {nodes_copy[i*2+1]['avail_cpu_cores']} CPU | {nodes_copy[i*2+1]['avail_ram_gb']} GB")
-                            if nodes_copy[i*2+1]['avail_cpu_cores'] < 0 or nodes_copy[i*2+1]['avail_ram_gb'] < 0: print("^^^ WARNING: OVERBOOKING ^^^") 
 
+                            # Checking resources at the node after each job starts
+                            #print(f"{job['node']} | {nodes_copy[i*2+1]['avail_gpu_count']} GPU | {nodes_copy[i*2+1]['avail_cpu_cores']} CPU | {nodes_copy[i*2+1]['avail_ram_gb']} GB")
+                            #if nodes_copy[i*2+1]['avail_cpu_cores'] < 0 or nodes_copy[i*2+1]['avail_ram_gb'] < 0: print("^^^ WARNING: OVERBOOKING ^^^") 
+
+        # Checking resources of each node at every timestep
         #print(f"\ntime: {time}")
         #print(f"node0 | {nodes[0]['avail_gpu_count']} GPU | {nodes[0]['avail_cpu_cores']} CPU | {nodes[0]['avail_ram_gb']} GB")
         #print(f"node1 | {nodes[1]['avail_gpu_count']} GPU | {nodes[1]['avail_cpu_cores']} CPU | {nodes[1]['avail_ram_gb']} GB")
@@ -79,9 +92,9 @@ def fcfs(job_list):
         
     return schedule, jobs, time
 
-def priority(jobs):
+def priority(job_list):
     nodes_copy = deepcopy(nodes)
-    total_jobs = len(jobs)
+    total_jobs = len(job_list)
     log = []
     schedule = [[], [], [], []]  # each list for one node
     queueA = deque()
@@ -91,10 +104,10 @@ def priority(jobs):
     time = 0
     completed = 0
 
-    for job in jobs:
-        job['total_ram_gb'] = job['cpu_cores'] * job['ram_gb_per_cpu']
-
+    jobs = job_preparation(job_list)
+    
     while completed < total_jobs:
+        # Freeing resources in the node when job completes
         for job in jobs:
             if job['state'] == 'R' and job['end_time'] <= time:
                 if job['node'] == 'node0': job_completed(0, job, nodes_copy, schedule)
@@ -103,14 +116,17 @@ def priority(jobs):
                 elif job['node'] == 'node3': job_completed(3, job, nodes_copy, schedule)
                 completed += 1
 
+        # Splitting jobs, based on GPU type, into respective queue
         for job in jobs:
             if job['submit_time'] == time:
                 job['state'] = 'Q'
                 queueA.append(job) if job['gpu_type'] == 'A100' else queueH.append(job)
 
+        # Sorting queues based on priority (descending), then submission time (ascending)
         queueA = deque(sorted(queueA, key=lambda job: (-job['priority'], job['submit_time'])))
         queueH = deque(sorted(queueH, key=lambda job: (-job['priority'], job['submit_time'])))
-        
+
+        # Looping through entire queue for A100 to begin jobs that have enough resources (GPU, CPU, RAM)
         for job in queueA.copy():
             if job['gpu_count'] <= nodes_copy[0]['avail_gpu_count'] and job['cpu_cores'] <= nodes_copy[0]['avail_cpu_cores'] and job['total_ram_gb'] <= nodes_copy[0]['avail_ram_gb']:
                 job_started(0, job, nodes_copy, time)
@@ -119,6 +135,7 @@ def priority(jobs):
                 job_started(1, job, nodes_copy, time)
                 jobs_removingA.append(job)
 
+        # Looping through entire queue for H100 to begin jobs that have enough resources (GPU, CPU, RAM)
         for job in queueH.copy():
             if job['gpu_count'] <= nodes_copy[2]['avail_gpu_count'] and job['cpu_cores'] <= nodes_copy[2]['avail_cpu_cores'] and job['total_ram_gb'] <= nodes_copy[2]['avail_ram_gb']:
                 job_started(2, job, nodes_copy, time)
@@ -127,10 +144,12 @@ def priority(jobs):
                 job_started(3, job, nodes_copy, time)
                 jobs_removingH.append(job)
 
+        # Removing started A100 jobs from queue and adding to the shared log
         for job in jobs_removingA:
             queueA.remove(job)
             log.append(job)
 
+        # Removing started H100 jobs from queue and adding to the shared log
         for job in jobs_removingH:
             queueH.remove(job)
             log.append(job)
@@ -165,38 +184,24 @@ if __name__ == "__main__":
     ]
 
     # ===== Check for FCFS =====
-    for node in log_fcfs:
-        for job in node:
-            print({key: job[key] for key in keys_to_display})
-        print()
-
-
-    print()
-    print()
-
-    # ===== Checks For Priority =====
-    print("All Jobs:")
-
-    for job in jobs:
+    print("===== FCFS POLICY =====")
+    print("\nLog for Node 0 and Node 1:")
+    for job in log_fcfs[0]:
         print({key: job[key] for key in keys_to_display})
 
-    print("\nLog for Node 0 and Node 1:")
+    print("\nLog for Node 2 and Node 3:")
+    for job in log_fcfs[1]:
+        print({key: job[key] for key in keys_to_display})
 
+
+    print("\n\n\n")
+
+    # ===== Checks For Priority =====
+    print("===== PRIORITY POLICY =====")
+    print("\nLog for Node 0 and Node 1:")
     for job in log_priority:
         if job['node'] == 'node0' or job['node'] == 'node1': print({key: job[key] for key in keys_to_display})
 
     print("\nLog for Node 2 and Node 3:")
-
     for job in log_priority:
         if job['node'] == 'node2' or job['node'] == 'node3': print({key: job[key] for key in keys_to_display})
-
-    print("\nQueue for A100:")
-
-    for job in queueA:
-        print({key: job[key] for key in keys_to_display})
-
-    print("\nQueue for H100:")
-
-    for job in queueH:
-        print({key: job[key] for key in keys_to_display})
-        
